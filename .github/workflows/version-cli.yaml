@@ -1,0 +1,46 @@
+name: Update Kindest Node Versions
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Run weekly
+  workflow_dispatch:
+
+jobs:
+  update-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        name: Get token
+        id: get_token
+        with:
+          app-id: ${{ secrets.JENKINS_DEPENDENCY_UPDATER_APP_ID }}
+          private-key: ${{ secrets.JENKINS_DEPENDENCY_UPDATER_PRIVATE_KEY }}
+          
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Get latest versions
+        id: versions
+        uses: version-cli/version@24738c384cda864e2dfb1d928871d583e2ecb653 # v0.2.1
+        with:
+          # renovate: datasource=github-tags depName=version-cli/version
+          version: v0.2.1
+          command: latest
+          args: --datasource docker --count 3 --minor kindest/node
+
+      - name: Update workflow
+        run: |
+          # Convert newlines to JSON array and prepend kindest/node:
+          VERSIONS_JSON=$(echo "${{ steps.versions.outputs.version }}" | jq -R -s -c 'split("\n")[:-1] | map("kindest/node:" + .)')
+          
+          # Update the target workflow file using yq
+          yq -i ".jobs.lint-test.strategy.matrix.kubernetes_version = $VERSIONS_JSON" .github/workflows/lint-test.yaml
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
+        with:
+          token: "${{ steps.get_token.outputs.token }}"
+          commit-message: "ci: update kindest/node versions"
+          title: "ci: update kindest/node versions"
+          body: "Updates the kindest/node versions in the test workflow to the latest 3 versions."
+          branch: "update-kindest-node-versions"

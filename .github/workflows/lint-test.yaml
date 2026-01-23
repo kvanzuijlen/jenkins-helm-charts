@@ -12,8 +12,8 @@ jobs:
 
     strategy:
       matrix:
+        # See https://kubernetes.io/releases/ for EOL dates - auto updated by version-cli
         kubernetes_version:
-          # See https://kubernetes.io/releases/ for EOL dates
           - "kindest/node:v1.34.2"
           - "kindest/node:v1.33.4"
           - "kindest/node:v1.32.8"
